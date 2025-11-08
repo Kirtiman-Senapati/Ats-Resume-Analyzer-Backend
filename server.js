@@ -21,6 +21,11 @@ app.get('/', (req, res) => {
   res.json({ message: 'Hello from Express on Vercel!' });
 });
 
+// local dev only:
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5004;
+  app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`));
+}
 // ==========================================
 // 🔐 AI CLIENT INITIALIZATION (FIXED)
 // ==========================================
