@@ -15,8 +15,9 @@ const PORT = process.env.PORT || 5000;
 const AI_PROVIDER = process.env.AI_PROVIDER || 'openai';
 
 
-
-// Define your routes
+// ===============================================================
+//    Define your routes use dashboard screen show server status
+// ===============================================================
 app.get('/', (req, res) => {
   res.json({ message: 'Hello from Express on Vercel!' });
 });
@@ -55,7 +56,7 @@ if (AI_PROVIDER === 'gemini') {
   // ✅ FIXED: Correct initialization
   aiClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   geminiModel = aiClient.getGenerativeModel({ 
-    model: 'gemini-2.0-flash-exp'  // ✅ Updated model
+    model: 'gemini-2.5-flash'  // ✅ Updated model
   });
   
   console.log('✅ Gemini client initialized');
@@ -99,7 +100,9 @@ async function callAI(systemPrompt, userPrompt) {
         max_tokens: 2000,
       });
       
+      
       return response.choices[0].message.content;
+    
     }
     
     // ===== Gemini Implementation (FIXED) =====
