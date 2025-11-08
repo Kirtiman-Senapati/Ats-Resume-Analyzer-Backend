@@ -71,19 +71,9 @@ if (AI_PROVIDER === 'gemini') {
 // 🛡️ MIDDLEWARE
 // ==========================================
 
-const ALLOWED = [
-  "http://localhost:5137",
-  "http://localhost:5173",
-  "https://ats-resume-analyzer-frontend.vercel.app",
-  "https://ephemeral-banoffee-c11ba8.netlify.app"
-];
-
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);           // allow curl/Postman/health
-    cb(null, ALLOWED.includes(origin));
-  },
-  credentials: true
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
 }));
 
 app.use(express.json({ limit: '10mb' }));
