@@ -7,6 +7,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';  // ✅ FIXED
+import 'dotenv/config';
+import  connectDB  from "./db.js";
+
 
 dotenv.config();
 
@@ -66,6 +69,11 @@ if (AI_PROVIDER === 'gemini') {
   
   console.log('✅ Gemini client initialized');
 }
+
+
+
+// Connect Database
+connectDB();
 
 // ==========================================
 // 🛡️ MIDDLEWARE
@@ -137,7 +145,7 @@ async function callAI(systemPrompt, userPrompt) {
 // 📝 ROUTE: ANALYZE RESUME
 // ==========================================
 
-app.post('/api/analyze-resume', async (req, res) => {
+app.post('/analyze-resume', async (req, res) => {
   try {
     console.log('📨 Received resume analysis request');
     
@@ -205,7 +213,7 @@ app.post('/api/analyze-resume', async (req, res) => {
 // 🎯 ROUTE: MATCH RESUME WITH JOB
 // ==========================================
 
-app.post('/api/match-job', async (req, res) => {
+app.post('/match-job', async (req, res) => {
   try {
     console.log('📨 Received job matching request');
     
@@ -274,7 +282,7 @@ app.post('/api/match-job', async (req, res) => {
 // ❤️ ROUTE: HEALTH CHECK
 // ==========================================
 
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     provider: AI_PROVIDER,

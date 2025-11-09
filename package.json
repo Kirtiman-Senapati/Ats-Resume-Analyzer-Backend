@@ -1,9 +1,10 @@
 {
   "name": "ats-resume-analyzer",
+  "types": "module",
   "version": "2",
-  "node-version":"22.19.0",
+  "node-version": "22.19.0",
   "description": "Backend API for Resume Optimizer using OpenAI/Gemini",
-  "main": "api/server", 
+  "main": "api/server",
   "type": "module",
   "scripts": {
     "start": "node server.js",
@@ -17,12 +18,12 @@
   ],
   "author": "",
   "license": "ISC",
-  "dependencies": 
-  {
+  "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "mongoose": "^8.19.3",
     "nodemon": "^3.1.10",
     "openai": "^6.8.1"
   }
