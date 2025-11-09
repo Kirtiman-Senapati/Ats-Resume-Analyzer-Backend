@@ -1,24 +1,24 @@
 // ============================================
-// 🚀 RESUME OPTIMIZER BACKEND SERVER (FIXED)
+// 🚀 RESUME OPTIMIZER BACKEND SERVER
 // ============================================
 
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';  // ✅ FIXED
-import 'dotenv/config';
-import  connectDB  from "./db.js";
-
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import mongoose from 'mongoose';
+import connectDB from './db.js';
+import Submission from './resumeModel.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const AI_PROVIDER = process.env.AI_PROVIDER || 'openai';
+const AI_PROVIDER = process.env.AI_PROVIDER || 'gemini';
 
 // ==========================================
-// 🔐 AI CLIENT INITIALIZATION (FIXED)
+// 🔐 AI CLIENT INITIALIZATION
 // ==========================================
 
 let aiClient;
@@ -37,7 +37,6 @@ if (AI_PROVIDER === 'openai') {
   console.log('✅ OpenAI client initialized');
 }
 
-// OPENROUTER (new)
 if (AI_PROVIDER === 'openrouter') {
   if (!process.env.OPENROUTER_API_KEY) {
     console.error('❌ ERROR: OPENROUTER_API_KEY not found');
@@ -46,7 +45,6 @@ if (AI_PROVIDER === 'openrouter') {
   aiClient = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
     baseURL: 'https://openrouter.ai/api/v1',
-    // optional headers recommended by OpenRouter:
     defaultHeaders: {
       'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
       'X-Title': 'ATS Resume Optimizer'
@@ -61,16 +59,13 @@ if (AI_PROVIDER === 'gemini') {
     process.exit(1);
   }
   
-  // ✅ FIXED: Correct initialization
   aiClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   geminiModel = aiClient.getGenerativeModel({ 
-    model: 'gemini-2.5-flash'  // ✅ Updated model
+    model: 'gemini-2.0-flash-exp'
   });
   
   console.log('✅ Gemini client initialized');
 }
-
-
 
 // Connect Database
 connectDB();
@@ -88,21 +83,19 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ==========================================
-// 📊 CALL AI FUNCTION (FIXED)
+// 📊 CALL AI FUNCTION
 // ==========================================
 
 async function callAI(systemPrompt, userPrompt) {
   try {
-    // ===== OpenAI Implementation =====
     if (AI_PROVIDER === 'openai' || AI_PROVIDER === 'openrouter') {
-      
-       const modelName = (AI_PROVIDER === 'openrouter')
-        ? 'google/gemini-1.5-flash'  // or any model you’ve enabled in OpenRouter
+      const modelName = (AI_PROVIDER === 'openrouter')
+        ? 'google/gemini-flash-1.5'
         : 'gpt-4o';
 
-      console.log(`🤖 Calling ${modelName}` );
+      console.log(`🤖 Calling ${modelName}`);
       
-           const response = await aiClient.chat.completions.create({
+      const response = await aiClient.chat.completions.create({
         model: modelName,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -113,11 +106,7 @@ async function callAI(systemPrompt, userPrompt) {
       });
       return response.choices[0].message.content;
     }
-
-
-
     
-    // ===== Gemini Implementation (FIXED) =====
     if (AI_PROVIDER === 'gemini') {
       console.log('🤖 Calling Google Gemini...');
       
@@ -149,7 +138,7 @@ app.post('/analyze-resume', async (req, res) => {
   try {
     console.log('📨 Received resume analysis request');
     
-    const { resumeText, prompt } = req.body;
+    const { resumeText, prompt, fileName, fileType, fileSize } = req.body;
     
     if (!resumeText || !prompt) {
       return res.status(400).json({
@@ -174,7 +163,6 @@ app.post('/analyze-resume', async (req, res) => {
     
     console.log('✅ AI response received');
     
-    // Parse JSON from response
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
@@ -192,6 +180,27 @@ app.post('/analyze-resume', async (req, res) => {
         success: false,
         error: analysisData.error,
       });
+    }
+
+    // 💾 Save to database
+    try {
+      const submission = new Submission({
+        fileName: fileName || 'unknown.pdf',
+        fileType: fileType || 'pdf',
+        fileSize: fileSize || 0,
+        analysisType: 'analyzer',
+        resumeText: resumeText,
+        resumeTextLength: resumeText.length,
+        analyzerResults: analysisData,
+        ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
+        userAgent: req.get('user-agent') || 'unknown'
+      });
+      
+      await submission.save();
+      console.log('✅ Saved to database:', submission._id);
+    } catch (dbError) {
+      console.error('⚠️ Database save error:', dbError.message);
+      // Continue even if DB save fails
     }
     
     return res.json({
@@ -217,7 +226,7 @@ app.post('/match-job', async (req, res) => {
   try {
     console.log('📨 Received job matching request');
     
-    const { resumeText, jobDescription, prompt } = req.body;
+    const { resumeText, jobDescription, prompt, fileName, fileType, fileSize } = req.body;
     
     if (!resumeText || !jobDescription || !prompt) {
       return res.status(400).json({
@@ -262,6 +271,28 @@ app.post('/match-job', async (req, res) => {
     if (!matchData.matchPercentage) {
       throw new Error('Invalid match format from AI');
     }
+
+    // 💾 Save to database
+    try {
+      const submission = new Submission({
+        fileName: fileName || 'unknown.pdf',
+        fileType: fileType || 'pdf',
+        fileSize: fileSize || 0,
+        analysisType: 'matcher',
+        resumeText: resumeText,
+        resumeTextLength: resumeText.length,
+        jobDescription: jobDescription,
+        matcherResults: matchData,
+        ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
+        userAgent: req.get('user-agent') || 'unknown'
+      });
+      
+      await submission.save();
+      console.log('✅ Saved to database:', submission._id);
+    } catch (dbError) {
+      console.error('⚠️ Database save error:', dbError.message);
+      // Continue even if DB save fails
+    }
     
     return res.json({
       success: true,
@@ -279,13 +310,144 @@ app.post('/match-job', async (req, res) => {
 });
 
 // ==========================================
+// 📊 DASHBOARD API ROUTES
+// ==========================================
+
+// Get all submissions
+app.get('/api/submissions', async (req, res) => {
+  try {
+    console.log('📨 Fetching submissions...');
+    
+    const { limit = 50, type } = req.query;
+    
+    let query = {};
+    if (type && ['analyzer', 'matcher'].includes(type)) {
+      query.analysisType = type;
+    }
+    
+    const submissions = await Submission
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+    
+    console.log(`✅ Found ${submissions.length} submissions`);
+    
+    return res.json({
+      success: true,
+      data: submissions
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching submissions:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get statistics
+app.get('/api/statistics', async (req, res) => {
+  try {
+    console.log('📨 Fetching statistics...');
+    
+    const totalSubmissions = await Submission.countDocuments();
+    const totalAnalyzer = await Submission.countDocuments({ analysisType: 'analyzer' });
+    const totalMatcher = await Submission.countDocuments({ analysisType: 'matcher' });
+    
+    // Recent activity (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentActivity = await Submission.countDocuments({
+      createdAt: { $gte: sevenDaysAgo }
+    });
+    
+    const stats = {
+      totalSubmissions,
+      totalAnalyzer,
+      totalMatcher,
+      recentActivity
+    };
+    
+    console.log('✅ Statistics:', stats);
+    
+    return res.json({
+      success: true,
+      data: stats
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching stats:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get single submission by ID
+app.get('/api/submissions/:id', async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id);
+    
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        error: 'Submission not found'
+      });
+    }
+    
+    return res.json({
+      success: true,
+      data: submission
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching submission:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Delete submission
+app.delete('/api/submissions/:id', async (req, res) => {
+  try {
+    const result = await Submission.findByIdAndDelete(req.params.id);
+    
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        error: 'Submission not found'
+      });
+    }
+    
+    return res.json({
+      success: true,
+      message: 'Submission deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error deleting submission:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ==========================================
 // ❤️ ROUTE: HEALTH CHECK
 // ==========================================
 
 app.get('/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  
   res.json({
     status: 'ok',
     provider: AI_PROVIDER,
+    database: dbStatus,
     message: 'Resume Optimizer API is running',
   });
 });
